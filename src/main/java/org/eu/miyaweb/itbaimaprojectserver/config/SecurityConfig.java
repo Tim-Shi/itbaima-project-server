@@ -5,12 +5,17 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.eu.miyaweb.itbaimaprojectserver.entity.RestBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
@@ -20,6 +25,9 @@ import java.io.IOException;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    @Autowired
+    UserDetailsService userDetailsService;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -36,14 +44,29 @@ public class SecurityConfig {
                 .logout()
                 .logoutUrl("/api/auth/logout");
         http
+                .userDetailsService(userDetailsService);
+        http
                 .csrf()
                 .disable();
-
         http
                 .exceptionHandling()
                 .authenticationEntryPoint(this::onAuthenticationFailure);
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+        return http
+                .getSharedObject(AuthenticationManagerBuilder.class)
+                .userDetailsService(userDetailsService)
+                .and()
+                .build();
+    }
+
+    @Bean
+    public BCryptPasswordEncoder encoder() {
+        return new BCryptPasswordEncoder();
     }
 
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -55,6 +78,5 @@ public class SecurityConfig {
         response.setCharacterEncoding("utf-8");
         response.getWriter().write(JSONObject.toJSONString(RestBean.failure(401, exception.getMessage())));
     }
-
 
 }
